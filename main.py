@@ -29,6 +29,18 @@ def validate_entry(text):
         problems.append("entry has no specific number")
     if "ticket #" not in text:
         problems.append("entry has no concrete artifact (ticket #)")
+    # Narrative order (winners study: setup, then a numbered action, then
+    # the concrete artifact punchline). Positions must increase in that order.
+    setup = re.search(r"elevator|floor|stuck", text, re.IGNORECASE)
+    action = re.search(r"\d+\s*(?:minutes?|hours?|seconds?|floors?)", text, re.IGNORECASE)
+    artifact = re.search(r"ticket #\d+", text)
+    if not (setup and action and artifact):
+        problems.append("entry lacks setup, numbered action, or ticket artifact")
+    elif not (setup.start() < action.start() < artifact.start()):
+        problems.append(
+            "entry narrative order broken: setup must come before the "
+            "numbered action, which must come before the ticket artifact"
+        )
     return problems
 
 
@@ -43,6 +55,19 @@ def self_test():
         ("two\nlines", False),
         ("x" * 200, False),
         ("no numbers or artifact here", False),
+        # Narrative order: passes the old checks (digit + ticket #) but the
+        # artifact comes before the numbered action and the setup is last.
+        (
+            "ticket #4821 filed, I've held the door 47 minutes in the "
+            "elevator, and neither of us pressed any button.",
+            False,
+        ),
+        # Artifact before the action, setup last — also rejected.
+        (
+            "the other robot filed ticket #4821 after 47 minutes in the "
+            "elevator.",
+            False,
+        ),
         (
             "Elevator's stuck between floors 12 and 13. I've held the door "
             "47 minutes, the other robot filed ticket #4821, and neither of "
